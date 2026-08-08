@@ -24,13 +24,35 @@ export function App() {
   const [activeTab, setActiveTab] = useState<'problems' | 'workspace' | 'contests' | 'create' | 'leaderboard' | 'profile'>('problems');
   
   // All Problems (including built-in and user-created custom problems)
-  const [allProblems, setAllProblems] = useState<Problem[]>(() => StorageService.getAllProblems());
-  const [selectedProblem, setSelectedProblem] = useState<Problem>(() => allProblems[0]);
+  const [allProblems, setAllProblems] = useState<Problem[]>(() => {
+    try {
+      const list = StorageService.getAllProblems();
+      return list && list.length > 0 ? list : INITIAL_PROBLEMS;
+    } catch {
+      return INITIAL_PROBLEMS;
+    }
+  });
+
+  const [selectedProblem, setSelectedProblem] = useState<Problem>(() => {
+    try {
+      const list = StorageService.getAllProblems();
+      return (list && list[0]) || INITIAL_PROBLEMS[0];
+    } catch {
+      return INITIAL_PROBLEMS[0];
+    }
+  });
 
   // Active Code Editor state
   const [language, setLanguage] = useState<SupportedLanguage>('javascript');
   const [code, setCode] = useState<string>(() => {
-    return StorageService.getDraft(allProblems[0].id, 'javascript') || allProblems[0].starterCode.javascript;
+    try {
+      const list = StorageService.getAllProblems();
+      const prob = (list && list[0]) || INITIAL_PROBLEMS[0];
+      const draft = StorageService.getDraft(prob.id, 'javascript');
+      return draft || prob.starterCode?.javascript || '// Start coding here\n';
+    } catch {
+      return INITIAL_PROBLEMS[0].starterCode.javascript;
+    }
   });
 
   // Runner & Submission states
