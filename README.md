@@ -2,7 +2,7 @@
 
 https://abtalk.netlify.app/
 
-# AI Input Logs File is in repository(Word file - Download and use)
+# AI Input Logs File is in repository as PROMPTS.md
 
 # Website Information:
 # 🚀 AlgoPioneers | ABTalk Redesign Challenge | Coding Challenge Platform
