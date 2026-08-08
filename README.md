@@ -1,4 +1,11 @@
-# 🚀 AlgoPioneers | Coding Challenge Platform
+# Website:
+
+https://abtalk.netlify.app/
+
+# AI Input Logs File is in repository(Word file - Download and use)
+
+# Website Information:
+# 🚀 AlgoPioneers | ABTalk Redesign Challenge | Coding Challenge Platform
 
 An advanced algorithmic practice, coding challenge, and competition platform with real-time testcase execution, Google Authentication, Cloud Firestore sync, dynamic 100% Beats percentile calculations, and custom challenge creation.
 
