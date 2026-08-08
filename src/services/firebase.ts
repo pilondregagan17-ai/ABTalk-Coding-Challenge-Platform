@@ -12,16 +12,16 @@ import type { AuthUser } from '../types/index';
 
 const FIREBASE_CONFIG_KEY = 'algopioneer_firebase_config';
 
-// Firebase configuration loaded from environment variables (.env file)
-// See .env.example for the required keys
+// Real Firebase credentials for ABTalkCoding Challenge Website
+// Allows instant boot on GitHub Pages with environment overrides if present
 export const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || ''
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBLC9XnyRBoHGQ22Gx1qeOvfBK5WQWHr14",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "abtalk-coding-challengplatform.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "abtalk-coding-challengplatform",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "abtalk-coding-challengplatform.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "846312613985",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:846312613985:web:aef8db0aaef55102bb6220",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-ZTPEY9LHRP"
 };
 
 export function getSavedFirebaseConfig() {
