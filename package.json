@@ -2,6 +2,7 @@
   "name": "codeguys-pioneers---ab-talk-redesign-coding-challenge-platform",
   "private": true,
   "version": "0.0.0",
+  "homepage": "https://pilondregagan17-ai.github.io/ABTalk-Coding-Challenge-Platform/",
   "type": "module",
   "scripts": {
     "dev": "vite",
