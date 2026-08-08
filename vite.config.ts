@@ -2,11 +2,12 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-// https://vite.dev/config/
+// Universal deployment configuration: base './' ensures assets load correctly on Netlify root domain, GitHub Pages subpath, or local preview
 export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? '/ABTalk-Coding-Challenge-Platform/' : '/',
+  base: './',
   plugins: [
     react(),
     tailwindcss(),
   ],
 });
+
