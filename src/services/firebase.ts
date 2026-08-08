@@ -1,4 +1,4 @@
-import { initializeApp, getApps, getApp, deleteApp, type FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -13,7 +13,6 @@ import type { AuthUser } from '../types/index';
 const FIREBASE_CONFIG_KEY = 'algopioneer_firebase_config';
 
 // Real Firebase credentials for ABTalkCoding Challenge Website
-// Allows instant boot on GitHub Pages with environment overrides if present
 export const DEFAULT_FIREBASE_CONFIG = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBLC9XnyRBoHGQ22Gx1qeOvfBK5WQWHr14",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "abtalk-coding-challengplatform.firebaseapp.com",
@@ -55,35 +54,54 @@ export function clearFirebaseConfig(): void {
 let appInstance: FirebaseApp | null = null;
 let authInstance: Auth | null = null;
 
-export function getFirebaseApp(): FirebaseApp {
-  if (!appInstance) {
-    const config = getSavedFirebaseConfig();
-    if (getApps().length > 0) {
-      try { deleteApp(getApp()); } catch {}
+export function getFirebaseApp(): FirebaseApp | null {
+  try {
+    if (!appInstance) {
+      const config = getSavedFirebaseConfig();
+      appInstance = getApps().length > 0 ? getApp() : initializeApp(config);
     }
-    appInstance = initializeApp(config);
+    return appInstance;
+  } catch (err) {
+    console.warn('Firebase app initialization fallback:', err);
+    try {
+      return getApps().length > 0 ? getApp() : null;
+    } catch {
+      return null;
+    }
   }
-  return appInstance;
 }
 
-export function getFirebaseAuth(): Auth {
-  if (!authInstance) {
-    const app = getFirebaseApp();
-    authInstance = getAuth(app);
+export function getFirebaseAuth(): Auth | null {
+  try {
+    if (!authInstance) {
+      const app = getFirebaseApp();
+      if (app) {
+        authInstance = getAuth(app);
+      }
+    }
+    return authInstance;
+  } catch (err) {
+    console.warn('Firebase auth initialization fallback:', err);
+    return null;
   }
-  return authInstance;
 }
 
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ 
-  prompt: 'select_account' 
-});
+try {
+  googleProvider.setCustomParameters({ 
+    prompt: 'select_account' 
+  });
+} catch {}
 
 /**
  * Real Google Sign-In via Firebase Authentication Popup
  */
 export async function signInWithGoogle(): Promise<AuthUser> {
   const auth = getFirebaseAuth();
+  if (!auth) {
+    throw new Error('Firebase Auth is not available in this browser environment');
+  }
+
   const result = await signInWithPopup(auth, googleProvider);
   const user = result.user;
 
@@ -106,38 +124,60 @@ export async function signInWithGoogle(): Promise<AuthUser> {
  * Real Firebase Sign Out
  */
 export async function logoutUser(): Promise<void> {
-  const auth = getFirebaseAuth();
-  if (auth) {
-    await fbSignOut(auth);
-  }
+  try {
+    const auth = getFirebaseAuth();
+    if (auth) {
+      await fbSignOut(auth);
+    }
+  } catch {}
   try {
     localStorage.removeItem('algopioneer_auth_user');
   } catch {}
 }
 
 /**
- * Subscribes to Real Firebase Auth Changes
+ * Subscribes to Real Firebase Auth Changes safely
  */
 export function subscribeToAuthChanges(callback: (user: AuthUser | null) => void): () => void {
-  const auth = getFirebaseAuth();
-  return onAuthStateChanged(auth, (user: FirebaseUser | null) => {
-    if (user) {
-      const authUser: AuthUser = {
-        uid: user.uid,
-        displayName: user.displayName || user.email?.split('@')[0] || 'Google Developer',
-        email: user.email,
-        photoURL: user.photoURL,
-        isAnonymous: user.isAnonymous
-      };
+  try {
+    const auth = getFirebaseAuth();
+    if (!auth) {
+      // Check if user is cached in local storage
       try {
-        localStorage.setItem('algopioneer_auth_user', JSON.stringify(authUser));
-      } catch {}
-      callback(authUser);
-    } else {
-      try {
-        localStorage.removeItem('algopioneer_auth_user');
-      } catch {}
-      callback(null);
+        const saved = localStorage.getItem('algopioneer_auth_user');
+        if (saved) {
+          callback(JSON.parse(saved));
+        } else {
+          callback(null);
+        }
+      } catch {
+        callback(null);
+      }
+      return () => {};
     }
-  });
+
+    return onAuthStateChanged(auth, (user: FirebaseUser | null) => {
+      if (user) {
+        const authUser: AuthUser = {
+          uid: user.uid,
+          displayName: user.displayName || user.email?.split('@')[0] || 'Google Developer',
+          email: user.email,
+          photoURL: user.photoURL,
+          isAnonymous: user.isAnonymous
+        };
+        try {
+          localStorage.setItem('algopioneer_auth_user', JSON.stringify(authUser));
+        } catch {}
+        callback(authUser);
+      } else {
+        try {
+          localStorage.removeItem('algopioneer_auth_user');
+        } catch {}
+        callback(null);
+      }
+    });
+  } catch (err) {
+    console.warn('Auth state change subscription note:', err);
+    return () => {};
+  }
 }

@@ -23,7 +23,9 @@ export function getFirestoreDB(): Firestore | null {
   try {
     if (!dbInstance) {
       const app = getFirebaseApp();
-      dbInstance = getFirestore(app);
+      if (app) {
+        dbInstance = getFirestore(app);
+      }
     }
     return dbInstance;
   } catch (err) {
