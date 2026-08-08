@@ -11,8 +11,11 @@ import {
 import type { AuthUser } from '../types/index';
 
 const FIREBASE_CONFIG_KEY = 'algopioneer_firebase_config';
+const AUTH_USER_KEY = 'algopioneer_auth_user';
 
-// Real Firebase credentials for ABTalkCoding Challenge Website
+// Firebase client configuration for ABTalk Coding Challenge Platform
+// Note: Firebase API Keys are public client identifiers used by the browser SDK to identify the project on Google servers.
+// Backend security is enforced via Firebase Security Rules and Authorized Domains in the Firebase Console.
 export const DEFAULT_FIREBASE_CONFIG = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBLC9XnyRBoHGQ22Gx1qeOvfBK5WQWHr14",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "abtalk-coding-challengplatform.firebaseapp.com",
@@ -45,14 +48,29 @@ export function saveCustomFirebaseConfig(config: typeof DEFAULT_FIREBASE_CONFIG)
 export function clearFirebaseConfig(): void {
   try {
     localStorage.removeItem(FIREBASE_CONFIG_KEY);
-    localStorage.removeItem('algopioneer_auth_user');
+    localStorage.removeItem(AUTH_USER_KEY);
     appInstance = null;
     authInstance = null;
+    notifyAuthSubscribers(null);
   } catch {}
 }
 
 let appInstance: FirebaseApp | null = null;
 let authInstance: Auth | null = null;
+
+// Auth subscriber registry for synchronized updates
+type AuthSubscriber = (user: AuthUser | null) => void;
+const subscribers: Set<AuthSubscriber> = new Set();
+
+function notifyAuthSubscribers(user: AuthUser | null) {
+  subscribers.forEach(cb => {
+    try {
+      cb(user);
+    } catch (err) {
+      console.warn('Auth notification error:', err);
+    }
+  });
+}
 
 export function getFirebaseApp(): FirebaseApp | null {
   try {
@@ -62,7 +80,7 @@ export function getFirebaseApp(): FirebaseApp | null {
     }
     return appInstance;
   } catch (err) {
-    console.warn('Firebase app initialization fallback:', err);
+    console.warn('Firebase app initialization note:', err);
     try {
       return getApps().length > 0 ? getApp() : null;
     } catch {
@@ -81,7 +99,7 @@ export function getFirebaseAuth(): Auth | null {
     }
     return authInstance;
   } catch (err) {
-    console.warn('Firebase auth initialization fallback:', err);
+    console.warn('Firebase auth initialization note:', err);
     return null;
   }
 }
@@ -94,12 +112,35 @@ try {
 } catch {}
 
 /**
+ * Instant Local & Demo Sign-In (100% works without Firebase domain restrictions)
+ */
+export function signInInstantly(username: string, avatar: string = '👨‍💻', customEmail?: string): AuthUser {
+  const safeName = username.trim() || 'Pioneer Coder';
+  const slug = safeName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const authUser: AuthUser = {
+    uid: `local_${slug}_${Date.now().toString(36)}`,
+    displayName: safeName,
+    email: customEmail || `${slug || 'developer'}@pioneer.dev`,
+    photoURL: (avatar.startsWith('http') || avatar.startsWith('data:')) ? avatar : null,
+    isAnonymous: false,
+    providerId: 'instant-local'
+  };
+
+  try {
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
+  } catch {}
+
+  notifyAuthSubscribers(authUser);
+  return authUser;
+}
+
+/**
  * Real Google Sign-In via Firebase Authentication Popup
  */
 export async function signInWithGoogle(): Promise<AuthUser> {
   const auth = getFirebaseAuth();
   if (!auth) {
-    throw new Error('Firebase Auth is not available in this browser environment');
+    throw new Error('Firebase Auth is not initialized. Please verify internet connection or use Instant Sign-In.');
   }
 
   const result = await signInWithPopup(auth, googleProvider);
@@ -110,18 +151,20 @@ export async function signInWithGoogle(): Promise<AuthUser> {
     displayName: user.displayName || user.email?.split('@')[0] || 'Google Developer',
     email: user.email,
     photoURL: user.photoURL,
-    isAnonymous: user.isAnonymous
+    isAnonymous: user.isAnonymous,
+    providerId: 'google.com'
   };
 
   try {
-    localStorage.setItem('algopioneer_auth_user', JSON.stringify(authUser));
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
   } catch {}
 
+  notifyAuthSubscribers(authUser);
   return authUser;
 }
 
 /**
- * Real Firebase Sign Out
+ * Sign Out (Firebase + Local Storage)
  */
 export async function logoutUser(): Promise<void> {
   try {
@@ -130,54 +173,84 @@ export async function logoutUser(): Promise<void> {
       await fbSignOut(auth);
     }
   } catch {}
+
   try {
-    localStorage.removeItem('algopioneer_auth_user');
+    localStorage.removeItem(AUTH_USER_KEY);
   } catch {}
+
+  notifyAuthSubscribers(null);
 }
 
 /**
- * Subscribes to Real Firebase Auth Changes safely
+ * Get the currently cached user from storage
+ */
+export function getCurrentCachedUser(): AuthUser | null {
+  try {
+    const saved = localStorage.getItem(AUTH_USER_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Subscribes to Real Firebase Auth Changes & Local Instant Logins safely
  */
 export function subscribeToAuthChanges(callback: (user: AuthUser | null) => void): () => void {
+  subscribers.add(callback);
+
+  // Initial trigger with cached user
+  const cached = getCurrentCachedUser();
+  if (cached) {
+    try {
+      callback(cached);
+    } catch {}
+  }
+
   try {
     const auth = getFirebaseAuth();
     if (!auth) {
-      // Check if user is cached in local storage
-      try {
-        const saved = localStorage.getItem('algopioneer_auth_user');
-        if (saved) {
-          callback(JSON.parse(saved));
-        } else {
-          callback(null);
-        }
-      } catch {
-        callback(null);
-      }
-      return () => {};
+      return () => {
+        subscribers.delete(callback);
+      };
     }
 
-    return onAuthStateChanged(auth, (user: FirebaseUser | null) => {
+    const unsubFirebase = onAuthStateChanged(auth, (user: FirebaseUser | null) => {
       if (user) {
         const authUser: AuthUser = {
           uid: user.uid,
           displayName: user.displayName || user.email?.split('@')[0] || 'Google Developer',
           email: user.email,
           photoURL: user.photoURL,
-          isAnonymous: user.isAnonymous
+          isAnonymous: user.isAnonymous,
+          providerId: 'google.com'
         };
         try {
-          localStorage.setItem('algopioneer_auth_user', JSON.stringify(authUser));
+          localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
         } catch {}
         callback(authUser);
       } else {
-        try {
-          localStorage.removeItem('algopioneer_auth_user');
-        } catch {}
-        callback(null);
+        // If not in Firebase auth, check if an instant local user is logged in
+        const localCached = getCurrentCachedUser();
+        if (localCached && localCached.providerId === 'instant-local') {
+          callback(localCached);
+        } else {
+          callback(null);
+        }
       }
     });
+
+    return () => {
+      subscribers.delete(callback);
+      try {
+        unsubFirebase();
+      } catch {}
+    };
   } catch (err) {
-    console.warn('Auth state change subscription note:', err);
-    return () => {};
+    console.warn('Auth state change subscription fallback:', err);
+    return () => {
+      subscribers.delete(callback);
+    };
   }
 }
+
